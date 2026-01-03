@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace BlackjackShared;
 
 public enum Rank
@@ -13,10 +15,11 @@ public enum Suit
 
 public class Card(Suit suit, Rank rank, bool isFaceUp)
 {
-    public Suit Suit { get; } = suit;
+    private Suit Suit { get; } = suit;
     public Rank Rank { get; } = rank;
     public bool IsFaceUp { get; set; } = isFaceUp;
 
+    [JsonIgnore]
     public string Symbol
     {
         get
@@ -44,6 +47,7 @@ public class Card(Suit suit, Rank rank, bool isFaceUp)
         }
     }
     
+    [JsonIgnore]
     public int Value
     {
         get 

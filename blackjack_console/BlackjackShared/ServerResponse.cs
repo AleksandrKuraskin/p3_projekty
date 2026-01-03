@@ -2,14 +2,9 @@ using System.Text.Json;
 
 namespace BlackjackShared;
 
-public class ServerResponse
+public class ServerResponse(string status = "OK", object? data = null)
 {
-    public string Status { get; set; }
-    public object? Data { get; set; }
-    
-    public ServerResponse(string status = "OK", object? data = null)
-    {
-        Status = status;
-        Data = data;
-    }
+    public string Status { get; init; } = status;
+    public object? Data { get; init; } = data;
+
 }

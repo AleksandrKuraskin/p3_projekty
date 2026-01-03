@@ -1,8 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.Text;
-using System.Linq;
-using System.Text.Json;
 using BlackjackShared;
 
 namespace BlackjackClient;
@@ -12,9 +7,9 @@ public static class ConsoleRenderer
     private const int Width = 80;
     private const int TableWidth = 50;
     
-    private static readonly System.Threading.Lock LogLock = new ();
+    private static readonly Lock LogLock = new ();
     
-    private static readonly List<string> GameLog = new List<string>();
+    private static readonly List<string> GameLog = [];
 
     public static void AddLog(string message)
     {
@@ -43,15 +38,27 @@ public static class ConsoleRenderer
                     break;
                 case ViewState.Table:
                     if (ClientState.UserProfile != null) DrawHeader(ClientState.UserProfile);
-                    if (ClientState.CurrentTable != null)
+                    if (ClientState.CurrentTable == null) break;
+
+                    DrawDealer(ClientState.CurrentTable.DealerHand);
+                    Console.WriteLine();
+                    if (ClientState.UserProfile != null)
+                        DrawSeats(ClientState.CurrentTable.Seats, ClientState.UserProfile);
+                    
+                    if (ClientState.CurrentTable.TimerEnd.HasValue)
                     {
-                        DrawDealer(ClientState.CurrentTable.DealerHand);
-                        Console.WriteLine();
-                        if (ClientState.UserProfile != null)
-                            DrawSeats(ClientState.CurrentTable.Seats, ClientState.UserProfile);
+                        var timeLeft = (ClientState.CurrentTable.TimerEnd.Value - DateTime.UtcNow).TotalSeconds;
+                        if (timeLeft < 0) timeLeft = 0;
+
+                        var label = $" {ClientState.CurrentTable.TimerLabel}: {timeLeft:0}s ";
+                        DrawSeparator("=", label);
+
+                        var bar = GenerateProgressBar(timeLeft, ClientState.CurrentTable.TimerDuration);
+                        Console.WriteLine($"\n{bar}");
                     }
 
                     break;
+                default: break;
             }
             Console.WriteLine();
             DrawLogAndFooter();
@@ -91,10 +98,8 @@ public static class ConsoleRenderer
         {
             for (var i = 0; i < 6; i++)
             {
-                if (i < GameLog.Count) 
-                    Console.WriteLine($" {GameLog[i].PadRight(Width - 2)} ");
-                else 
-                    Console.WriteLine(new string(' ', Width));
+                var line = i < GameLog.Count ? GameLog[i].PadRight(Width - 2) : new string(' ', Width);
+                Console.WriteLine($"{line}");
             }
         }
         DrawSeparator("=");
@@ -146,8 +151,8 @@ public static class ConsoleRenderer
             Console.Write(" ");
             foreach (var seat in rowSeats)
             {
-                var name = (seat.Player == myProfile) ? "YOU" : seat.Player.Name;
-                var moveIndicator = seat.SeatNumber - 1 == ClientState.CurrentTable.CurrentTurnSeatIndex ? " (!)" : "";
+                var name = (seat.Player == myProfile) ? "YOU" : seat.Player?.Name;
+                var moveIndicator = seat.SeatNumber - 1 == ClientState.CurrentTable?.CurrentTurnSeatIndex ? " (!)" : "";
                 var title = $" {name} (Seat {seat.SeatNumber}){moveIndicator} ";
                 
                 var dashes = boxWidth - 4 - title.Length;
@@ -177,7 +182,7 @@ public static class ConsoleRenderer
             Console.WriteLine();
             
             Console.Write(" ");
-            foreach (var seat in rowSeats)
+            foreach (var _ in rowSeats)
             {
                 Console.Write($"└{new string('─', boxWidth - 2)}┘{emptySpace}");
             }
@@ -226,24 +231,24 @@ public static class ConsoleRenderer
         }
         else
         {
-            int sideLen = (Width - title.Length) / 2;
-            string side = new string(c[0], sideLen);
+            var sideLen = (Width - title.Length - 2) / 2;
+            var side = new string(c[0], sideLen);
 
-            string result = $"{side}{title}{side}";
+            var result = $"{side} {title} {side}";
             Console.WriteLine(result.PadRight(Width, c[0]));
         }
     }
     
     private static string GenerateProgressBar(double current, int max)
     {
-        int barLength = 30;
+        var barLength = Width;
         if (max == 0) max = 1;
-        double percent = (double)current / max;
+        var percent = current / max;
         if (percent < 0) percent = 0;
         if (percent > 1) percent = 1;
 
-        int filled = (int)(barLength * percent);
-        int empty = barLength - filled;
+        var filled = (int)(barLength * percent);
+        var empty = barLength - filled;
 
         return new string('█', filled) + new string('.', empty);
     }

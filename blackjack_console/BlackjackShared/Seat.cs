@@ -1,13 +1,16 @@
+using System.Text.Json.Serialization;
+
 namespace BlackjackShared;
 
 public class Seat
 {
     public int SeatNumber { get; set; }
-    public Profile? Player { get; set; } = null;
-    public Hand Hand { get; set; } = new Hand();
+    public Profile? Player { get; private set; } = null;
+    public Hand Hand { get; private set; } = new Hand();
     
-    public double CurrentBet { get; set; }
+    public double CurrentBet { get; private set; }
 
+    [JsonIgnore]
     public bool IsTaken => Player != null;
 
     public Seat() {}

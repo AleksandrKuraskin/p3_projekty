@@ -22,10 +22,11 @@ public class NetworkManager
             _reader = new StreamReader(_stream);
             _isConnected = true;
 
-            Thread t = new Thread(ListenLoop);
-            t.IsBackground = true;
+            var t = new Thread(ListenLoop)
+            {
+                IsBackground = true
+            };
             t.Start();
-            
             return true;
         }
         catch
@@ -55,8 +56,7 @@ public class NetworkManager
     {
         try
         {
-            string? line;
-            while (_isConnected && _reader != null && (line = _reader.ReadLine()) != null)
+            while (_isConnected && _reader?.ReadLine() is {} line)
             {
                 if (string.IsNullOrWhiteSpace(line)) continue;
                 CommandProcessor.HandleServerMessage(line);

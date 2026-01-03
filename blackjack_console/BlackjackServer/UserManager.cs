@@ -1,7 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
 using BlackjackShared;
@@ -21,9 +17,9 @@ public static class UserManager
             .Where(parts => parts.Length >= 4
                             && parts[0].Equals(username)
                             && parts[1] == Hash(password))
-            .Select(parts => new Profile(parts[0], double.Parse(parts[2]))
+            .Select(parts => new Profile(false, parts[0], double.Parse(parts[2]))
             {
-                Xp = int.Parse(parts[3])
+                GlobalXp = int.Parse(parts[3])
             }).FirstOrDefault();
     }
 
@@ -36,8 +32,8 @@ public static class UserManager
             return false;
         }
 
-        string entry = $"{username}|{Hash(password)}|1000|0";
-        File.AppendAllLines(DbFile, new[] { entry });
+        var entry = $"{username}|{Hash(password)}|1000|0";
+        File.AppendAllLines(DbFile, [entry]);
         return true;
     }
 
@@ -48,15 +44,14 @@ public static class UserManager
         var tempLines = new List<string>();
         if (File.Exists(DbFile)) tempLines = File.ReadAllLines(DbFile).ToList();
         
-        for(int i=0; i<tempLines.Count; i++)
+        for(var i=0; i<tempLines.Count; i++)
         {
             var parts = tempLines[i].Split('|');
-            if (parts[0].Equals(p.Name))
-            {
-                tempLines[i] = $"{p.Name}|{parts[1]}|{p.Balance}|{p.Xp}";
-                File.WriteAllLines(DbFile, tempLines);
-                return;
-            }
+            if (!parts[0].Equals(p.Name)) continue;
+            
+            tempLines[i] = $"{p.Name}|{parts[1]}|{p.Balance}|{p.GlobalXp}";
+            File.WriteAllLines(DbFile, tempLines);
+            return;
         }
     }
 
@@ -67,11 +62,8 @@ public static class UserManager
 
     private static string Hash(string input)
     {
-        using (var sha = SHA256.Create())
-        {
-            var bytes = Encoding.UTF8.GetBytes(input);
-            var hash = sha.ComputeHash(bytes);
-            return Convert.ToBase64String(hash);
-        }
+        var bytes = Encoding.UTF8.GetBytes(input);
+        var hash = SHA256.HashData(bytes);
+        return Convert.ToBase64String(hash);
     }
 }

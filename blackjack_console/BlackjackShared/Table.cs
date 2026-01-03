@@ -1,6 +1,3 @@
-using System.Collections.Generic;
-using System.ComponentModel;
-using System.Linq;
 using System.Text.Json.Serialization;
 
 namespace BlackjackShared;
@@ -15,21 +12,30 @@ public enum GameState
 
 public class Table
 {
-    public int Id { get; set; }
-    public string Name { get; set; }
-    public Deck Deck { get; set; }
-    public Hand DealerHand { get; set; }
-    public List<Seat> Seats { get; set; }
+    public int Id { get; init; }
+    public string Name { get; init; } = "";
+    [JsonIgnore]
+    private Deck Deck { get; init; } = new Deck(5);
+    public Hand DealerHand { get; set; } = new Hand();
+    public List<Seat> Seats { get; init; } = [];
+    [JsonIgnore]
     public int MaxPlayers => Seats.Count;
+    [JsonIgnore]
     public int PlayerCount => Seats.Count(s => s.Player != null);
 
     public GameState State { get; set; } = GameState.Betting;
     public int CurrentTurnSeatIndex { get; set; } = -1; 
+    
+    private DateTime _dealerActionStart = DateTime.MinValue;
+    
+    public DateTime? TimerEnd { get; set; }
+    public int TimerDuration { get; set; }
+    public string TimerLabel { get; set; } = "";
 
     [JsonConstructor]
     public Table() { }
     
-    public Table(int id, string name, int seatCount, int players = 0)
+    public Table(int id, string name, int seatCount)
     {
         Id = id;
         Name = name;
@@ -37,7 +43,7 @@ public class Table
         DealerHand = new Hand();
         Seats = new List<Seat>();
         
-        for (int i = 0; i < seatCount; i++)
+        for (var i = 0; i < seatCount; i++)
         {
             Seats.Add(new Seat(i + 1));
         }
@@ -66,7 +72,7 @@ public class Table
             return "OK";
         }
         
-        bool wasActiveTurn = (State == GameState.Playing && CurrentTurnSeatIndex == seat.SeatNumber - 1);
+        var wasActiveTurn = (State == GameState.Playing && CurrentTurnSeatIndex == seat.SeatNumber - 1);
         if (wasActiveTurn) NextTurn();
         else if(State == GameState.Betting) CheckStartRound();
         
@@ -98,12 +104,13 @@ public class Table
         if (CurrentTurnSeatIndex != seat.SeatNumber - 1) return "It is not your turn.";
 
         seat.Hand.AddCard(Deck.Draw());
+        
 
-        if (seat.Hand.IsBust || seat.Hand.Score() == 21)
-        {
+        if (seat.Hand.AbsScore >= 21)
             NextTurn();
-        }
-
+        else 
+            SetTimer(30, $"Player {player.Name}'s Turn");
+        
         return "OK";
     }
 
@@ -122,24 +129,83 @@ public class Table
     private void CheckStartRound()
     {
         var players = Seats.Where(s => s.IsTaken).ToList();
-        if (players.Count > 0 && players.All(s => s.CurrentBet > 0))
+        var readyCount = players.Count(p => p.CurrentBet > 0);
+        
+        if (readyCount == players.Count && players.Count > 0)
         {
-            Console.WriteLine($"Starting round at table {Id}.");
-            StartGame();
+            SetTimer(5, "Game starting in");
+        }
+        else if (readyCount == 1)
+        {
+            SetTimer(30, "Place your bets");
+        }
+    }
+    
+    private void SetTimer(int seconds, string label)
+    {
+        TimerEnd = DateTime.UtcNow.AddSeconds(seconds);
+        TimerDuration = seconds;
+        TimerLabel = label;
+    }
+    
+    private void ClearTimer()
+    {
+        TimerEnd = null;
+        TimerLabel = "";
+    }
+    public bool Heartbeat()
+    {
+        if (TimerEnd.HasValue && DateTime.UtcNow >= TimerEnd.Value)
+        {
+            HandleTimeout();
+            return true;
+        }
+        if (State != GameState.DealerTurn) return false;
+        
+        if (DateTime.UtcNow < _dealerActionStart) return false;
+
+        var act = ExecuteDealerStep();
+        if(act) _dealerActionStart = DateTime.UtcNow.AddSeconds(1);
+        return act;
+    }
+
+    private void HandleTimeout()
+    {
+        ClearTimer();
+
+        switch (State)
+        {
+            case GameState.Betting:
+                var players = Seats.Where(s => s.IsTaken).ToList();
+                if (players.Count > 0 && players.Any(s => s.CurrentBet > 0))
+                {
+                    Console.WriteLine($"Starting round at table {Id}.");
+                    StartGame();
+                }
+                break;
+            case GameState.Playing:
+                if (CurrentTurnSeatIndex >= 0 && CurrentTurnSeatIndex < Seats.Count)
+                {
+                    NextTurn();
+                }
+                break;
+            case GameState.GameOver:
+                ResetTable();
+                break;
+            case GameState.DealerTurn:
+            default: break;
         }
     }
     
     private void StartGame()
     {
+        ClearTimer();
         State = GameState.Playing;
         DealerHand = new Hand();
+        _dealerActionStart = DateTime.MinValue;
 
-        foreach (var seat in Seats.Where(s => s.IsTaken))
-        {
-            seat.ResetHand();
-            seat.Hand.AddCard(Deck.Draw());
-            seat.Hand.AddCard(Deck.Draw());
-        }
+        for(var i = 0; i < 2; ++i) 
+            foreach (var s in Seats.Where(s => s is {IsTaken: true, CurrentBet: > 0})) s.Hand.AddCard(Deck.Draw());
         
         DealerHand.AddCard(Deck.Draw());
         DealerHand.AddCard(Deck.Draw(false));
@@ -150,20 +216,21 @@ public class Table
 
     private void NextTurn()
     {
-        int next = CurrentTurnSeatIndex + 1;
-        Console.WriteLine($"Turn for seat {next}");
-
+        var next = CurrentTurnSeatIndex + 1;
         while (next < Seats.Count)
         {
             if (Seats[next].IsTaken && Seats[next].CurrentBet > 0 && Seats[next].Hand.Score() < 21)
             {
                 CurrentTurnSeatIndex = next;
+                SetTimer(30, $"It's {Seats[next].Player?.Name}'s Turn");
                 return;
             }
             next++;
         }
 
-        if (State == GameState.Playing && Seats.All(s => s.Hand.IsBust || s.Hand.IsBlackjack))
+        ClearTimer();
+        var players = Seats.Where(s => s is {IsTaken: true, CurrentBet: > 0}).ToList();
+        if (State == GameState.Playing && players.All(s => s.Hand.IsBust || s.Hand.IsBlackjack))
         {
             ResolvePayouts();
         }
@@ -184,7 +251,7 @@ public class Table
             return true;
         }
 
-        int score = DealerHand.Score();
+        var score = DealerHand.Score();
         if (Math.Abs(score) < 17)
         {
             DealerHand.AddCard(Deck.Draw());
@@ -192,30 +259,52 @@ public class Table
         }
 
         ResolvePayouts();
-        return false;
+        return true;
     }
 
     
     private void ResolvePayouts()
     {
         State = GameState.GameOver;
-        int dScore = DealerHand.AbsScore;
+        var dScore = DealerHand.AbsScore;
 
-        foreach (var seat in Seats.Where(s => s.IsTaken && s.CurrentBet > 0))
+        foreach (var seat in Seats.Where(s => s is { IsTaken: true, CurrentBet: > 0, Player: not null} ))
         {
-            int pScore = seat.Hand.AbsScore;
-            if (!seat.Hand.IsBust)
+            if (seat.Player == null) continue;
+            var pScore = seat.Hand.AbsScore;
+            var xpEarned = 50;
+
+            if (seat.Hand.IsBust)
             {
-                if(seat.Hand.IsBlackjack)
-                    seat.Player.Balance += seat.CurrentBet * 2.5;
-                else if (DealerHand.IsBust || pScore > dScore)
-                    seat.Player.Balance += seat.CurrentBet * 2;
-                else if (pScore == dScore)
-                    seat.Player.Balance += seat.CurrentBet;
+                xpEarned += 50; 
             }
+            else
+            {
+                if (seat.Hand.IsBlackjack)
+                {
+                    seat.Player.Balance += seat.CurrentBet * 2.5;
+                    xpEarned += 250;
+                }
+                else if (DealerHand.IsBust || pScore > dScore)
+                {
+                    seat.Player.Balance += seat.CurrentBet * 2;
+                    xpEarned += 200;
+                }
+                else if (pScore == dScore)
+                {
+                    seat.Player.Balance += seat.CurrentBet;
+                    xpEarned += 100;
+                }
+                else
+                {
+                    xpEarned += 50;
+                }
+            }
+
+            seat.Player.GlobalXp += xpEarned;
         }
         
-        ResetTable();
+        SetTimer(3, "Next round starts in");
     }
     
     private void ResetTable()

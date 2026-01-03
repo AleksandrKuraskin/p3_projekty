@@ -4,6 +4,6 @@ namespace BlackjackShared;
 
 public class ClientRequest
 {
-    public string Command { get; set; } = "";
-    public object Args { get; set; } = new {};
+    public string Command { get; init; } = "";
+    public object Args { get; init; } = new {};
 }

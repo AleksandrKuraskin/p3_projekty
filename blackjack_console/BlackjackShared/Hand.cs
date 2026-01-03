@@ -4,15 +4,16 @@ namespace BlackjackShared;
 
 public class Hand
 {
-    public List<Card> Cards { get; set; } = new List<Card>();
-    public bool IsBust => Score() > 21;
-    public bool IsBlackjack => Cards.Count == 2 && Score() == 21 && Cards.All(c => c.IsFaceUp);
+    public List<Card> Cards { get; set; } = [];
     
-    public bool HasHiddenCard => Cards.Any(c => !c.IsFaceUp);
-    public string Status => (HasHiddenCard || !IsBust && !IsBlackjack) ? "" : IsBust ? "Bust!" : "Blackjack!";
+    [JsonIgnore] public bool IsBust => Score() > 21;
+    [JsonIgnore] public bool IsBlackjack => Cards.Count == 2 && Score() == 21 && Cards.All(c => c.IsFaceUp);
+    [JsonIgnore] public string Status => (HasHiddenCard || !IsBust && !IsBlackjack) ? "" : IsBust ? "Bust!" : "Blackjack!";
     
-    public string StringScore => Score() >= 0 ? Score().ToString() : $"Soft {Score()*-1}";
-    public int AbsScore => Score() >= 0 ? Score() : Score()*-1;
+    [JsonIgnore] public bool HasHiddenCard => Cards.Any(c => !c.IsFaceUp);
+    
+    [JsonIgnore] public string StringScore => Score() >= 0 ? Score().ToString() : $"Soft {Score()*-1}";
+    [JsonIgnore] public int AbsScore => Score() >= 0 ? Score() : Score()*-1;
     
     [JsonConstructor]
     public Hand() { }
@@ -24,8 +25,8 @@ public class Hand
 
     public int Score()
     {
-        int score = Cards.Where(c => c.IsFaceUp).Sum(c => c.Value);
-        int aceCount = Cards.Count(c => c.Rank == Rank.Ace && c.IsFaceUp);
+        var score = Cards.Where(c => c.IsFaceUp).Sum(c => c.Value);
+        var aceCount = Cards.Count(c => c.Rank is Rank.Ace && c.IsFaceUp);
 
         while (score > 21 && aceCount > 0)
         {

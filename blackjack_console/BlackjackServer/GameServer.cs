@@ -6,24 +6,58 @@ using BlackjackShared;
 namespace BlackjackServer;
 public static class GameServer
 {
-    public static List<Table> Tables { get; set; } = new List<Table>();
-    public static List<ClientHandler> Clients { get; set; } = new List<ClientHandler>();
-    public static readonly System.Threading.Lock StateLock = new();
+    public static List<Table> Tables { get; set; } = [];
+    private static List<ClientHandler> Clients { get; set; } = [];
+    public static readonly Lock StateLock = new();
 
     public static void Main()
     {
-        TcpListener listener = new TcpListener(IPAddress.Any, 13000);
+        var loop = new Thread(ServerLoop)
+        {
+            IsBackground = true
+        };
+        
+        loop.Start();
+        
+        var listener = new TcpListener(IPAddress.Any, 13000);
         listener.Start();
         Console.WriteLine("Server started on port 13000...");
 
         while (true)
         {
-            TcpClient tcpClient = listener.AcceptTcpClient();
+            var tcpClient = listener.AcceptTcpClient();
             Console.WriteLine($"New client connected from {tcpClient.Client.RemoteEndPoint}!");
-            ClientHandler handler = new ClientHandler(tcpClient);
+            var handler = new ClientHandler(tcpClient);
             lock (StateLock) { Clients.Add(handler); }
 
             new Thread(handler.Run).Start();
+        }
+    }
+    
+    private static void ServerLoop()
+    {
+        while (true)
+        {
+            Thread.Sleep(100);
+
+            lock (StateLock)
+            {
+                for (var i = 0; i < Tables.Count; i++)
+                {
+                    var table = Tables[i];
+                    var previousState = table.State;
+                    if (!table.Heartbeat()) return;
+                    
+                    if (previousState != GameState.GameOver && table.State == GameState.GameOver)
+                    {
+                        foreach (var seat in table.Seats.Where(s => s.Player is { IsGuest: false }))
+                        {
+                            if(seat.Player is not null) UserManager.SaveUser(seat.Player);
+                        }
+                    }
+                    BroadcastTableState(i);
+                }
+            }
         }
     }
     
@@ -34,10 +68,10 @@ public static class GameServer
         
         lock (StateLock)
         {
-            json = System.Text.Json.JsonSerializer.SerializeToElement(table);
+            json = JsonSerializer.SerializeToElement(table);
         }
         
-        var command = "TABLE_UPDATE";
+        const string command = "TABLE_UPDATE";
         
         List<ClientHandler> targets;
         lock (StateLock)
@@ -59,24 +93,17 @@ public static class GameServer
     
     public static void BroadcastTablesList()
     {
-        var tables = GameServer.Tables
-            .Select(t => new TableInfo
-            {
-                Id = t.Id,
-                Name = t.Name,
-                MaxPlayers = t.MaxPlayers,
-                PlayerCount = t.PlayerCount
-            })
+        var tables = Tables
             .OrderByDescending(t => t.PlayerCount)
             .ToList();
         JsonElement json;
         
         lock (StateLock)
         {
-            json = System.Text.Json.JsonSerializer.SerializeToElement(tables);
+            json = JsonSerializer.SerializeToElement(tables);
         }
         
-        var command = "LIST_TABLES";
+        const string command = "LIST_TABLES";
         
         List<ClientHandler> targets;
         lock (StateLock)
@@ -101,12 +128,13 @@ public static class GameServer
         lock (StateLock)
         {
             Clients.Remove(client);
-            if (client.CurrentTable != null && client.User != null)
-            {
-                var table = client.CurrentTable;
-                var seat = table.GetSeatOf(client.User);
-                if (seat != null) seat.StandUp();
-            }
+            if(client.User is { IsGuest: false }) UserManager.SaveUser(client.User);
+            if (client is not { CurrentTable: not null, User: not null }) return;
+            
+            var table = client.CurrentTable;
+            var seat = table.GetSeatOf(client.User);
+            seat?.StandUp();
+            BroadcastTableState(table.Id);
         }
     }
     

@@ -7,7 +7,7 @@ using System.Collections.Generic;
 
 public class Deck
 {
-    public Stack<Card> Cards { get; set; } = new Stack<Card>();
+    private Stack<Card> Cards { get; set; } = new Stack<Card>();
     private int Count { get; set; } = 5;
 
     [JsonConstructor]
@@ -25,27 +25,19 @@ public class Deck
     private int CardCount => Cards.Count;
     private void ResetAndShuffle()
     {
-        var cards = new List<Card>();
-        for (var i = 0; i < Count; i++)
-        {
-            foreach (Suit s in Enum.GetValues(typeof(Suit)))
-            {
-                foreach (Rank r in Enum.GetValues(typeof(Rank)))
-                {
-                    cards.Add(new Card(s, r, false));
-                }
-            }
-        }
-        
-        int n = cards.Count;
+        var cards = Enumerable.Range(0, Count)
+            .SelectMany(_ => Enum.GetValues<Suit>()
+                .SelectMany(s => Enum.GetValues<Rank>()
+                    .Select(r => new Card(s, r, false))))
+            .ToList();
+        var n = cards.Count;
         while (n > 1)
         {
             n--;
-            int k = Random.Shared.Next(n + 1);
+            var k = Random.Shared.Next(n + 1);
             (cards[k], cards[n]) = (cards[n], cards[k]);
         }
         Cards = new Stack<Card>(cards);
-        Console.WriteLine($"Deck reset and shuffled with first card being {Cards.Peek().ToString()}");
     }
 
     public void CheckEmpty()

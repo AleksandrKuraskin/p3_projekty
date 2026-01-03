@@ -1,10 +1,5 @@
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
 using System.Net.Sockets;
 using System.Text.Json;
-using System.Threading;
 using BlackjackShared;
 
 namespace BlackjackServer;
@@ -30,8 +25,7 @@ public class ClientHandler
     {
         try
         {
-            string? line;
-            while ((line = _reader.ReadLine()) != null)
+            while (_reader.ReadLine() is {} line)
             {
                 ProcessJsonCommand(line);
             }
@@ -65,7 +59,6 @@ public class ClientHandler
             _reader.Dispose();
             _writer.Dispose();
             _client.Close();
-            Console.WriteLine("[System] Client resources released.");
         }
     }
     
@@ -85,13 +78,11 @@ public class ClientHandler
                         HandleGuest();
                         break;
                     case "LOGIN":
-                        Console.WriteLine($"{root}");
                         var user = root.GetProperty("username").GetString();
                         var pass = root.GetProperty("password").GetString();
                         if (user == null || pass == null) return;
                         HandleLogin(user, pass);
                         break;
-                    
                     case "REGISTER":
                         var regUser = root.GetProperty("username").GetString();
                         var regPass = root.GetProperty("password").GetString();
@@ -170,15 +161,8 @@ public class ClientHandler
     private void HandleGuest()
     {
         var name = "Guest_" + new Random().Next(100, 999);
-        User = new Profile(name, 500);
-        var response = new ServerResponse("LOGIN_OK", new
-        {
-            name = User.Name,
-            balance = User.Balance,
-            xp = User.Xp
-        });
-        Console.WriteLine($"{JsonSerializer.Serialize(response)}");
-        Send(response);
+        User = new Profile(true, name, 500);
+        Send(CreateResponse("LOGIN_OK", JsonSerializer.SerializeToElement(User)));
     }
     private void HandleLogin(string u, string p)
     {
@@ -188,15 +172,7 @@ public class ClientHandler
         if (profile != null)
         {
             User = profile;
-            var response = new ServerResponse();
-            var data = new
-            {
-                name = User.Name,
-                balance = User.Balance,
-                xp = User.Xp
-            };
-            response.Data = data;
-            Send(CreateResponse("LOGIN_OK", JsonSerializer.SerializeToElement(response)));
+            Send(CreateResponse("LOGIN_OK", JsonSerializer.SerializeToElement(profile)));
             Console.WriteLine($"[Auth] {User.Name} logged in.");
         }
         else SendError("Invalid credentials.");
@@ -234,19 +210,11 @@ public class ClientHandler
         }
     }
 
-    public void HandleList()
+    private void HandleList()
     {
         var tables = GameServer.Tables
-            .Select(t => new TableInfo
-            {
-                Id = t.Id,
-                Name = t.Name,
-                MaxPlayers = t.MaxPlayers,
-                PlayerCount = t.PlayerCount
-            })
             .OrderByDescending(t => t.PlayerCount)
             .ToList();
-        
         Send(CreateResponse("LIST_TABLES", JsonSerializer.SerializeToElement(tables)));
     }
 
@@ -297,7 +265,7 @@ public class ClientHandler
         if (CurrentTable == null) { SendError("You must join a table first."); return; }
         
         var t = CurrentTable;
-        string result = t.PlaceBet(User, amount);
+        var result = t.PlaceBet(User, amount);
         if (result == "OK") GameServer.BroadcastTableState(t.Id);
         else SendError(result);
     }
@@ -308,7 +276,7 @@ public class ClientHandler
         if (CurrentTable == null) { SendError("You must join a table first."); return; }
         
         var t = CurrentTable;
-        string result = t.Hit(User);
+        var result = t.Hit(User);
         if (result == "OK")
         {
             GameServer.BroadcastTableState(CurrentTable.Id);
@@ -324,7 +292,7 @@ public class ClientHandler
         if (CurrentTable == null) { SendError("You must join a table first."); return; }
         
         var t = CurrentTable;
-        string result = t.Stand(User);
+        var result = t.Stand(User);
         if (result == "OK")
         {
             GameServer.BroadcastTableState(CurrentTable.Id);
@@ -333,13 +301,13 @@ public class ClientHandler
         else SendError(result);
     }
     
-    private void CheckTriggerDealer(Table t)
+    private static void CheckTriggerDealer(Table t)
     {
         if (t.State == GameState.DealerTurn)
         {
             Task.Run(async () => 
             {
-                bool dealerActive = true;
+                var dealerActive = true;
                 while (dealerActive)
                 {
                     await Task.Delay(1000);
@@ -363,7 +331,7 @@ public class ClientHandler
         if (CurrentTable == null) { SendError("You must join a table first."); return; }
         
         var t = CurrentTable;
-        string result = t.StandUp(User);
+        var result = t.StandUp(User);
         if (result == "OK")
         {
             GameServer.BroadcastTableState(CurrentTable.Id);

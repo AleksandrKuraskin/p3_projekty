@@ -1,53 +1,56 @@
-﻿using System;
-using System.Text;
-using System.Threading;
-using BlackjackShared;
+﻿using System.Text;
 
 namespace BlackjackClient;
 
-static class Program
+internal static class Program
 {
-    static void Main(string[] args)
+    private static void Main()
     { 
         ClientState.Init();
         
-        StringBuilder inputBuffer = new StringBuilder();
-        bool running = true;
+        var inputBuffer = new StringBuilder();
+        var running = true;
 
         while (running)
         {
             if (Console.KeyAvailable)
             {
-                ConsoleKeyInfo key = Console.ReadKey(true);
+                var key = Console.ReadKey(true);
 
-                if (key.Key == ConsoleKey.Enter)
+                switch (key.Key)
                 {
-                    string cmd = inputBuffer.ToString().Trim();
-                    inputBuffer.Clear();
-                    CommandProcessor.Process(cmd, ref running);
+                    case ConsoleKey.Enter:
+                        var cmd = inputBuffer.ToString().Trim();
+                        inputBuffer.Clear();
+                        CommandProcessor.Process(cmd, ref running);
+                        break;
+                    case ConsoleKey.Backspace:
+                        if (inputBuffer.Length > 0) inputBuffer.Remove(inputBuffer.Length - 1, 1);
+                        break;
+                    default:
+                        if (key.KeyChar is >= ' ' and <= '~') inputBuffer.Append(key.KeyChar);
+                        break;
                 }
-                else if (key.Key == ConsoleKey.Backspace)
-                {
-                    if (inputBuffer.Length > 0) inputBuffer.Remove(inputBuffer.Length - 1, 1);
-                }
-                else if (key.KeyChar >= ' ' && key.KeyChar <= '~')
-                {
-                    inputBuffer.Append(key.KeyChar);
-                }
-                
+
                 ConsoleRenderer.Draw(true);
-                Console.Write(" > " + inputBuffer.ToString());
+                Console.Write(" > " + inputBuffer);
             }
             
-            if (ClientState.IsHandInProgress && DateTime.Now > ClientState.TurnExpiresAt)
+            if (ClientState.IsHandInProgress && DateTime.UtcNow > ClientState.TurnExpiresAt)
             {
-                ConsoleRenderer.AddLog("[System] Time expired! Auto-Standing.");
+                ConsoleRenderer.AddLog("[System] Time expired! Auto-standing.");
                 CommandProcessor.Process("stand", ref running);
-                ConsoleRenderer.Draw();
-                Console.Write(" > " + inputBuffer.ToString());
+                ConsoleRenderer.Draw(true);
+                Console.Write(" > " + inputBuffer);
+            }
+
+            if (ClientState.CurrentTable?.TimerEnd.HasValue == true)
+            {
+                ConsoleRenderer.Draw(true);
+                Console.Write(" > " + inputBuffer);
             }
             
-            Thread.Sleep(50);
+            Thread.Sleep(17);
         }
         
         ConsoleRenderer.DrawExit();

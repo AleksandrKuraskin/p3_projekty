@@ -4,18 +4,21 @@ namespace BlackjackShared;
 
 public class Profile
 {
-    public string Name { get; set; }
+    public bool IsGuest { get; init; } = true;
+    public string Name { get; init; } = "";
     public double Balance { get; set; }
-    public int Xp { get; set; }
-    public int Level => (Xp / 1000) + 1;
+    public int GlobalXp { get; set; }
+    public int Xp => GlobalXp % 1000;
     
+    [JsonIgnore] public int Level => (GlobalXp / 1000) + 1;
+
     [JsonConstructor]
     public Profile() { }
 
-    public Profile(string name, double startingBalance)
+    public Profile(bool isGuest, string name, double startingBalance)
     {
+        IsGuest = isGuest;
         Name = name;
         Balance = startingBalance;
-        Xp = 0;
     }
 }
