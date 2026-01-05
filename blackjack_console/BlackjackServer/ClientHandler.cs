@@ -240,7 +240,6 @@ public class ClientHandler
         
         CurrentTable = GameServer.Tables[tId];
         GameServer.BroadcastTableState(tId);
-        SendInfo($"Joined table {CurrentTable.Name}.");
     }
 
     private void HandleSit(int seatIndex)

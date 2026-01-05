@@ -116,7 +116,7 @@ public static class CommandProcessor
                 ClientState.Network.Send("STAND", new {});
                 break;
             default:
-                ConsoleRenderer.AddLog("Commands: leave, back, sit <seat>, bet <amount>, hit, stand, exit");
+                ConsoleRenderer.AddLog("Commands: leave, back, sit <seat_id>, bet <amount>, hit, stand, exit");
                 break;
         }
     }

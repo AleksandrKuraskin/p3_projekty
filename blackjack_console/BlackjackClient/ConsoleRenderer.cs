@@ -47,7 +47,7 @@ public static class ConsoleRenderer
                     
                     if (ClientState.CurrentTable.TimerEnd.HasValue)
                     {
-                        var timeLeft = (ClientState.CurrentTable.TimerEnd.Value - DateTime.UtcNow).TotalSeconds;
+                        var timeLeft = (ClientState.CurrentTable.TimerEnd.Value.ToUniversalTime() - DateTime.UtcNow).TotalSeconds;
                         if (timeLeft < 0) timeLeft = 0;
 
                         var label = $" {ClientState.CurrentTable.TimerLabel}: {timeLeft:0}s ";
@@ -56,9 +56,7 @@ public static class ConsoleRenderer
                         var bar = GenerateProgressBar(timeLeft, ClientState.CurrentTable.TimerDuration);
                         Console.WriteLine($"\n{bar}");
                     }
-
                     break;
-                default: break;
             }
             Console.WriteLine();
             DrawLogAndFooter();
@@ -109,7 +107,7 @@ public static class ConsoleRenderer
     {
         DrawSeparator("=");
 
-        string content = $"\tUSER: {p.Name,-8} | BALANCE: ${p.Balance,-8} | LVL: {p.Level} ({p.Xp} / 1000 XP)";
+        var content = $"\tUSER: {p.Name,-8} | BALANCE: ${p.Balance,-8} | LVL: {p.Level} ({p.Xp} / 1000 XP)";
         Console.WriteLine(content.PadRight(Width));
         DrawSeparator("=");
     }
@@ -117,12 +115,12 @@ public static class ConsoleRenderer
     private static void DrawDealer(Hand dealerHand)
     {
 
-        string handStr = dealerHand.ToString();
-        string scoreStr = $"Score: {dealerHand.StringScore} {dealerHand.Status}";
-        string label = "DEALER";
+        var handStr = dealerHand.ToString();
+        var scoreStr = $"Score: {dealerHand.StringScore} {dealerHand.Status}";
+        const string label = "DEALER";
 
-        int padding = (Width - TableWidth) / 2;
-        string padStr = new string(' ', padding);
+        const int padding = (Width - TableWidth) / 2;
+        var padStr = new string(' ', padding);
 
         Console.WriteLine($"{padStr}┌────────────────── {label} ───────────────────┐");
         Console.WriteLine($"{padStr}│  {handStr,-43}│");
@@ -142,6 +140,7 @@ public static class ConsoleRenderer
         
         const int seatsPerRow = 2;
         const int boxWidth = 36;
+        const int innerWidth = boxWidth - 4;
         const string emptySpace = "    ";
         
         for (var i = 0; i < activeSeats.Count; i += seatsPerRow)
@@ -158,33 +157,33 @@ public static class ConsoleRenderer
                 var dashes = boxWidth - 4 - title.Length;
                 if (dashes < 0) dashes = 0;
             
-                string topBorder = $"┌──{title}{new string('─', dashes)}┐";
+                var topBorder = $"┌──{title}{new string('─', dashes)}┐";
                 Console.Write(topBorder + emptySpace);
             }
             Console.WriteLine();
             Console.Write(" ");
             foreach (var seat in rowSeats)
             {
-                string cards = string.Join(" ", seat.Hand.Cards.Select(c => c.Symbol));
+                var cards = string.Join(" ", seat.Hand.Cards.Select(c => c.Symbol));
 
-                if (cards.Length > boxWidth - 4) cards = cards.Substring(0, boxWidth - 7) + "...";
+                if (cards.Length > innerWidth) cards = cards[..(innerWidth - 4)] + "...";
 
-                Console.Write($"│ {cards.PadRight(boxWidth - 4)} │{emptySpace}");
+                Console.Write($"│ {cards, -innerWidth} │{emptySpace}");
             }
             Console.WriteLine();
 
             Console.Write(" ");
             foreach (var seat in rowSeats)
             {
-                string content = $"Score: {seat.Hand.StringScore} {seat.Hand.Status}";
-                Console.Write($"│ {content.PadRight(boxWidth - 4)} │{emptySpace}");
+                var content = $"Score: {seat.Hand.StringScore} {seat.Hand.Status}";
+                Console.Write($"│ {content, -innerWidth} │{emptySpace}");
             }
             Console.WriteLine();
             
             Console.Write(" ");
             foreach (var _ in rowSeats)
             {
-                Console.Write($"└{new string('─', boxWidth - 2)}┘{emptySpace}");
+                Console.Write($"└{new string('─', innerWidth + 2)}┘{emptySpace}");
             }
             Console.WriteLine("\n");
         }
@@ -203,7 +202,7 @@ public static class ConsoleRenderer
 
         if (ClientState.LobbyList.Count == 0)
         {
-            Console.WriteLine("\tNo tables found. Type 'create <name>' to start.".PadRight(Width));
+            Console.WriteLine("\tNo tables found. Type 'create <name> <max_players>' to start.".PadRight(Width));
         }
         else
         {
@@ -212,14 +211,14 @@ public static class ConsoleRenderer
             
             foreach (var t in ClientState.LobbyList.Take(10)) 
             {
-                string row = $"\t{t.Id,-4} | {t.Name,-30} | {t.PlayerCount}/{t.MaxPlayers}";
+                var row = $"\t{t.Id,-4} | {t.Name,-30} | {t.PlayerCount}/{t.MaxPlayers}";
                 Console.WriteLine(row.PadRight(Width));
             }
         }
 
         Console.WriteLine();
         DrawSeparator("-");
-        Console.WriteLine("\tCOMMANDS: list, join <id>, create <name>, logout, exit".PadRight(Width));
+        Console.WriteLine("\tCOMMANDS: list, join <id/name>, create <name> <max_players>, logout, exit".PadRight(Width));
         DrawSeparator("=");
     }
 

@@ -46,7 +46,7 @@ public static class GameServer
                 {
                     var table = Tables[i];
                     var previousState = table.State;
-                    if (!table.Heartbeat()) return;
+                    if (!table.Heartbeat()) continue;
                     
                     if (previousState != GameState.GameOver && table.State == GameState.GameOver)
                     {

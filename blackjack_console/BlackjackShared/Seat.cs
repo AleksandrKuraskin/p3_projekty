@@ -5,20 +5,19 @@ namespace BlackjackShared;
 public class Seat
 {
     public int SeatNumber { get; set; }
-    public Profile? Player { get; private set; } = null;
-    public Hand Hand { get; private set; } = new Hand();
+    public Profile? Player { get; set; } = null;
+    public Hand Hand { get; set; } = new Hand();
     
-    public double CurrentBet { get; private set; }
+    public double CurrentBet { get; set; }
 
-    [JsonIgnore]
     public bool IsTaken => Player != null;
 
+    [JsonConstructor]
     public Seat() {}
 
     public Seat(int number)
     {
         SeatNumber = number;
-        Hand = new Hand();
     }
     public void ResetHand()
     {

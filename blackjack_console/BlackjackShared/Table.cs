@@ -157,6 +157,7 @@ public class Table
     {
         if (TimerEnd.HasValue && DateTime.UtcNow >= TimerEnd.Value)
         {
+            Console.WriteLine($"Timer expired at table {Id}.");
             HandleTimeout();
             return true;
         }
@@ -205,7 +206,9 @@ public class Table
         _dealerActionStart = DateTime.MinValue;
 
         for(var i = 0; i < 2; ++i) 
-            foreach (var s in Seats.Where(s => s is {IsTaken: true, CurrentBet: > 0})) s.Hand.AddCard(Deck.Draw());
+            foreach (var s in Seats.
+                         Where(s => s is {IsTaken: true, CurrentBet: > 0})) 
+                s.Hand.AddCard(Deck.Draw());
         
         DealerHand.AddCard(Deck.Draw());
         DealerHand.AddCard(Deck.Draw(false));

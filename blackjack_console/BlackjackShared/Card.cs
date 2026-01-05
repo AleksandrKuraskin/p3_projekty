@@ -15,7 +15,7 @@ public enum Suit
 
 public class Card(Suit suit, Rank rank, bool isFaceUp)
 {
-    private Suit Suit { get; } = suit;
+    public Suit Suit { get; } = suit;
     public Rank Rank { get; } = rank;
     public bool IsFaceUp { get; set; } = isFaceUp;
 
