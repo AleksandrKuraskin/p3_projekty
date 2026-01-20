@@ -4,15 +4,11 @@
 
 Jest to prosty projekt realizujący połączenie sieciowe między serwerem a klientami za pośrednictwem protokołu TCP. Jest to aplikacja konsolowa, stąd niektóre rzeczy mogą wyglądać bardzo topornie. Uważam jednak, że sposób komunikacji klienta z serwerem umożliwia dodanie w przyszłości interfejsu graficznego, chociaż dla mnie na tym etapie była to bariera nie do przejścia :/.
 
----
-
 ## Serwer
 
 Zaprojektowana struktura serwera dla tego projektu jest dosyć prosta i wykonuje podstawowe czynności. Przede wszystkim ciągle czeka na nowe prośby połączenia w sieci lokalnej na porcie 13000. Każdemu klientowi, z którym udało się nawiązać połączenie przydziela jego własny wątek, który dzieli strumień klienta TCP na strumienie wykorzystywane odpowiednio do odczytu i zapisu, co umożliwia jednoczesne pobieranie danych z serwera i wysyłanie mu poleceń. Wątek klienta cały czas czeka na ciąg znaków wysłany przez klienta zakończony znakiem nowej linii. Po otrzymaniu takiej wiadomości, próbuje ją przetłumaczyć na jedno z dostępnych poleceń i następnie wysyła odpowiedź.
 
 Dodatkowo serwer ciągle sprawdza stan każdego z istniejących w grze stołów (co 100ms) i w razie potrzeby zapisuje dane zarejestrowanych użytkowników do lokalnego pliku bazy danych oraz wysyła do każdego "_zainteresowanego_" gracza aktualny stan stołu.
-
----
 
 ## Klient
 
@@ -39,8 +35,6 @@ W momencie włączenia aplikacji użytkownika (klienta) dochodzi do próby poł�
     - **hit** - dobiera kolejną kartę do ręki. Gracz musi siedzieć przy stole oraz być w trakcie rozgrywki;
     - **stand** - przekazanie ruchu kolejnemu graczowi, wstrzymanie się przed dobieraniem kolejnej karty. Zasady użycia podobne jak dla polecenia **hit**;
     - **exit** - wychodzi z gry;
-
----
 
 ## Known issues
 
