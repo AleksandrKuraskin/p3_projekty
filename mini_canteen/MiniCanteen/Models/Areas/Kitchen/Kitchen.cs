@@ -2,13 +2,13 @@ namespace MiniCanteen.Models.Areas.Kitchen;
 
 public class Kitchen
 {
-    public bool HasMushroom { get; set; }
-    public bool HasCheese { get; set; }
-    public bool HasPepperoni { get; set; }
+    public bool DroppedTomato { get; private set; }
+    public bool DroppedCheese { get; private set; }
+    public bool DroppedChili { get; private set; }
     
-    public string ChefLeoState { get; set; } = "💤 Idle";
-    public string ChefMarioState { get; set; } = "💤 Idle";
-    public string ChefDiegoState { get; set; } = "💤 Idle";
+    public string ChefLeoState { get; private set; } = "💤 Idle";
+    public string ChefMarioState { get; private set; } = "💤 Idle";
+    public string ChefDiegoState { get; private set; } = "💤 Idle";
     
     private readonly object _lock = new object();
     
@@ -16,19 +16,19 @@ public class Kitchen
     {
         lock (_lock)
         {
-            HasMushroom = false; HasCheese = false; HasPepperoni = false;
+            DroppedTomato = false; DroppedCheese = false; DroppedTomato = false;
             
             var rand = new Random().Next(0, 3);
             switch (rand)
             {
                 case 0:
-                    HasCheese = true; HasPepperoni = true;
+                    DroppedCheese = true; DroppedChili = true;
                     break;
                 case 1:
-                    HasMushroom = true; HasPepperoni = true;
+                    DroppedTomato = true; DroppedChili = true;
                     break;
                 case 2:
-                    HasMushroom = true; HasCheese = true;
+                    DroppedTomato = true; DroppedCheese = true;
                     break;
             }
 
@@ -40,13 +40,13 @@ public class Kitchen
     {
         lock (_lock)
         {
-            var canCook = (chefName == "Chef Leo" && HasCheese && HasPepperoni) ||
-                          (chefName == "Chef Mario" && HasMushroom && HasPepperoni) ||
-                          (chefName == "Chef Diego" && HasMushroom && HasCheese);
+            var canCook = (chefName == "Chef Leo" && DroppedCheese && DroppedChili) ||
+                          (chefName == "Chef Mario" && DroppedTomato && DroppedChili) ||
+                          (chefName == "Chef Diego" && DroppedTomato && DroppedCheese);
             
             if (canCook)
             {
-                HasMushroom = false; HasCheese = false; HasPepperoni = false;
+                DroppedTomato = false; DroppedCheese = false; DroppedChili = false;
                 
                 UpdateChefStatus(chefName, "🍳 Cooking...");
                 Monitor.PulseAll(_lock);

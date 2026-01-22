@@ -61,11 +61,11 @@ class Program
             {
                 state.Kitchen.TryCook(name, need1, need2);
                 
-                if (state.Kitchen.ChefDiegoState.Contains("COOKING") && name == "Chef Diego" ||
-                    state.Kitchen.ChefLeoState.Contains("COOKING") && name == "Chef Leo" ||
-                    state.Kitchen.ChefMarioState.Contains("COOKING") && name == "Chef Mario")
+                if (state.Kitchen.ChefDiegoState.Contains("🍳 Cooking...") && name == "Chef Diego" ||
+                    state.Kitchen.ChefLeoState.Contains("🍳 Cooking...") && name == "Chef Leo" ||
+                    state.Kitchen.ChefMarioState.Contains("🍳 Cooking...") && name == "Chef Mario")
                 {
-                    await Task.Delay(1000);
+                    await Task.Delay(10000);
                     await state.ServiceArea.FoodBuffer.Writer.WriteAsync(1);
                     state.Log($"{name} finished cooking!");
                 }

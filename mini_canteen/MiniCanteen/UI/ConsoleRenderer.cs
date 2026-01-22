@@ -26,15 +26,15 @@ public static class ConsoleRenderer
             .Expand();
         
         var k = state.Kitchen;
-        var ingredients = $"{(k.HasMushroom ? "🍄 Mushroom " : "")}{(k.HasCheese ? "🧀 Cheese " : "")}{(k.HasPepperoni ? " Pepperoni" : "")}";
+        var ingredients = $"{(k.DroppedTomato ? "🍅 Tomato " : "")}{(k.DroppedCheese ? "🧀 Cheese " : "")}{(k.DroppedChili ? "🌶️ Chili" : "")}";
         if (string.IsNullOrWhiteSpace(ingredients)) ingredients = "[grey]Empty[/]";
 
         var kitchenContent = new Markup(
             $"[bold]Ingredients on Table (Supplier):[/]\n{ingredients}\n\n" +
             "[bold]Chefs (Smokers Problem):[/]\n" +
             $"👨‍🍳 [bold]Chef Diego (Needs 🍅+🧀):[/]   {GetChefColor(k.ChefDiegoState)}\n" +
-            $"👨‍🍳 [bold]Chef Leo (Needs 🍞+🧀):[/]   {GetChefColor(k.ChefLeoState)}\n" +
-            $"👨‍🍳 [bold]Chef Mario (Needs 🍅+🍞):[/]  {GetChefColor(k.ChefMarioState)}"
+            $"👨‍🍳 [bold]Chef Leo (Needs 🌶️+🧀):[/]   {GetChefColor(k.ChefLeoState)}\n" +
+            $"👨‍🍳 [bold]Chef Mario (Needs 🍅+🌶️):[/]  {GetChefColor(k.ChefMarioState)}"
         );
         var kitchenPanel = new Panel(kitchenContent).Header("👨‍🍳 KITCHEN").BorderColor(Color.Red).Expand();
         
@@ -93,9 +93,9 @@ public static class ConsoleRenderer
     {
         var g = new Grid().AddColumns(3);
         g.AddRow(new Text(""), new Markup($"{t.Students[0].Icon} {t.Students[0].Name}"), new Text(""));
-        g.AddRow(new Markup(IsForkTaken(t.Forks[3]) ? "❌" : "🔱"), new Text(""), new Markup(IsForkTaken(t.Forks[1]) ? "❌" : "🔱"));
+        g.AddRow(new Markup(IsForkTaken(t.Forks[3]) ? "❌" : "󰒤"), new Text(""), new Markup(IsForkTaken(t.Forks[1]) ? "❌" : "󰒤"));
         g.AddRow(new Markup($"{t.Students[3].Icon} {t.Students[3].Name}"), new Markup($"[bold]{t.Name.Substring(0,7)}[/]"), new Markup($"{t.Students[1].Icon} {t.Students[1].Name}"));
-        g.AddRow(new Markup(IsForkTaken(t.Forks[2]) ? "❌" : "🔱"), new Text(""), new Markup(IsForkTaken(t.Forks[0]) ? "❌" : "🔱")); // Visual approximation
+        g.AddRow(new Markup(IsForkTaken(t.Forks[2]) ? "❌" : "󰒤"), new Text(""), new Markup(IsForkTaken(t.Forks[0]) ? "❌" : "󰒤"));
         g.AddRow(new Text(""), new Markup($"{t.Students[2].Icon} {t.Students[2].Name}"), new Text(""));
         return new Panel(g)
         {
