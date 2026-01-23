@@ -1,5 +1,6 @@
 ﻿using MiniCanteen.Models;
 using MiniCanteen.UI;
+using Spectre.Console;
 
 namespace MiniCanteen;
 
@@ -9,69 +10,91 @@ class Program
     {
         while (Console.WindowWidth < 100 || Console.WindowHeight < 30)
         {
-            Console.WriteLine("Window too small! Please resize console to at least 100x30.");
+            Console.Clear();
+            Console.WriteLine("⚠️ Window too small!");
+            Console.WriteLine($"Current: {Console.WindowWidth}x{Console.WindowHeight}");
+            Console.WriteLine("Required: 100x30");
+            Console.WriteLine("Please resize console...");
+            Thread.Sleep(500);
         }
-        
+
         var state = new CanteenState();
-        
-        _ = Task.Run(async () => {
-            while (true) {
-                await Task.Delay(2000);
+
+        _ = Task.Run(async () =>
+        {
+            Console.WriteLine("Adding supplier logic...");
+            while (true)
+            {
+                await Task.Delay(500);
+
                 state.Kitchen.SupplierPutIngredients();
-                state.Log("👨‍🍳 Supplier added ingredients.");
+                state.Log("👨‍🍳 Supplier refilled table.");
             }
         });
-        
-        StartChef(state, "Chef Diego", "🍞", "🍅", "🧀");
-        StartChef(state, "Chef Leo", "🍅", "🍞", "🧀");
-        StartChef(state, "Chef Mario", "🧀", "🍅", "🍞");
-        
-        _ = Task.Run(async () => {
-            while(true) {
-                await Task.Delay(5000);
+
+        foreach (var chef in state.Kitchen.Chefs)
+        {
+            chef.StartWork();
+        }
+
+        _ = Task.Run(async () =>
+        {
+            Console.WriteLine("Adding customers logic...");
+            while (true)
+            {
+                await Task.Delay(2000); // New customer every 2s
                 state.Log(state.Entrance.TryEnterQueue()
                     ? "🚪 Customer entered queue."
                     : "🛑 Customer balked (Queue Full).");
             }
         });
 
-        _ = Task.Run(async () => {
-            while(true) {
-                if(state.Entrance.WaitingCount > 0) {
+        _ = Task.Run(async () =>
+        {
+            while (true)
+            {
+                if (state.Entrance.WaitingCount > 0)
+                {
                     state.Entrance.SeatCustomer();
                     state.Log("✅ Host seated a guest.");
                 }
+
                 await Task.Delay(500);
             }
         });
-        
-        Console.Clear();
-        while (true)
+
+        AnsiConsole.Write(new Text("\u001b[?1049h"));
+        Console.CursorVisible = false;
+
+        try
         {
-            Console.SetCursorPosition(0,0); 
-            ConsoleRenderer.ShowDashboard(state);
-            await Task.Delay(16);
+            // Now we can properly AWAIT the loop!
+            await RunDashboardLoop(state);
+        }
+        finally
+        {
+            // Restore Main Screen Buffer (Clean Exit)
+            // \u001b[?1049l is the exit code
+            AnsiConsole.Write(new Text("\u001b[?1049l"));
+            Console.CursorVisible = true;
         }
     }
 
-    static void StartChef(CanteenState state, string name, string has, string need1, string need2)
+    private static async Task RunDashboardLoop(CanteenState state)
     {
-        Task.Run(async () => {
-            while (true)
+        while (true)
+        {
+            if (Console.KeyAvailable)
             {
-                state.Kitchen.TryCook(name, need1, need2);
-                
-                if (state.Kitchen.ChefDiegoState.Contains("🍳 Cooking...") && name == "Chef Diego" ||
-                    state.Kitchen.ChefLeoState.Contains("🍳 Cooking...") && name == "Chef Leo" ||
-                    state.Kitchen.ChefMarioState.Contains("🍳 Cooking...") && name == "Chef Mario")
-                {
-                    await Task.Delay(10000);
-                    await state.ServiceArea.FoodBuffer.Writer.WriteAsync(1);
-                    state.Log($"{name} finished cooking!");
-                }
-                
-                await Task.Delay(200);
+                var key = Console.ReadKey(true).Key;
+                if (key == ConsoleKey.Q || key == ConsoleKey.Escape) break;
+                if (key == ConsoleKey.C) state.SystemLog.Clear();
             }
-        });
+
+            Console.SetCursorPosition(0, 0); 
+            ConsoleRenderer.ShowDashboard(state);
+            
+            await Task.Delay(50);
+        }
     }
 }

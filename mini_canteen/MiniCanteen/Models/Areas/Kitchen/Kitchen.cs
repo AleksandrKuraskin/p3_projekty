@@ -1,76 +1,81 @@
 namespace MiniCanteen.Models.Areas.Kitchen;
 
+using MiniCanteen.Config.Enums;
+using MiniCanteen.Models.Areas.ServiceArea;
+
 public class Kitchen
 {
     public bool DroppedTomato { get; private set; }
     public bool DroppedCheese { get; private set; }
     public bool DroppedChili { get; private set; }
-    
-    public string ChefLeoState { get; private set; } = "💤 Idle";
-    public string ChefMarioState { get; private set; } = "💤 Idle";
-    public string ChefDiegoState { get; private set; } = "💤 Idle";
+
+    public List<Chef> Chefs { get; private set; } = new List<Chef>();
     
     private readonly object _lock = new object();
+
+    public Kitchen(ServiceArea serviceArea)
+    {
+        Chefs.Add(new Chef("Leo", IngredientType.Tomato, this, serviceArea));
+        
+        Chefs.Add(new Chef("Mario", IngredientType.Cheese, this, serviceArea));
+        
+        Chefs.Add(new Chef("Diego", IngredientType.Chili, this, serviceArea));
+    }
     
     public void SupplierPutIngredients()
     {
         lock (_lock)
         {
-            DroppedTomato = false; DroppedCheese = false; DroppedTomato = false;
-            
-            var rand = new Random().Next(0, 3);
-            switch (rand)
+
+            while (DroppedTomato || DroppedCheese || DroppedChili)
             {
-                case 0:
-                    DroppedCheese = true; DroppedChili = true;
-                    break;
-                case 1:
-                    DroppedTomato = true; DroppedChili = true;
-                    break;
-                case 2:
-                    DroppedTomato = true; DroppedCheese = true;
-                    break;
+                Monitor.Wait(_lock);
             }
+            
+            var excludedItem = (IngredientType)new Random().Next(0, 3);
+            
+            DroppedTomato = (excludedItem != IngredientType.Tomato);
+            DroppedCheese = (excludedItem != IngredientType.Cheese);
+            DroppedChili  = (excludedItem != IngredientType.Chili);
 
             Monitor.PulseAll(_lock);
         }
     }
-
-    public void TryCook(string chefName, string needed1, string needed2)
+    
+    public bool TryTakeIngredients(IngredientType chefHas)
     {
         lock (_lock)
         {
-            var canCook = (chefName == "Chef Leo" && DroppedCheese && DroppedChili) ||
-                          (chefName == "Chef Mario" && DroppedTomato && DroppedChili) ||
-                          (chefName == "Chef Diego" && DroppedTomato && DroppedCheese);
-            
+            var canCook = false;
+
+            switch (chefHas)
+            {
+                case IngredientType.Tomato:
+                    if (DroppedCheese && DroppedChili) canCook = true;
+                    break;
+                
+                case IngredientType.Cheese:
+                    if (DroppedTomato && DroppedChili) canCook = true;
+                    break;
+                
+                case IngredientType.Chili:
+                    if (DroppedTomato && DroppedCheese) canCook = true;
+                    break;
+                default:
+                    break;
+            }
+
             if (canCook)
             {
-                DroppedTomato = false; DroppedCheese = false; DroppedChili = false;
+                DroppedTomato = false;
+                DroppedCheese = false;
+                DroppedChili = false;
                 
-                UpdateChefStatus(chefName, "🍳 Cooking...");
                 Monitor.PulseAll(_lock);
+                return true;
             }
-            else
-            {
-                UpdateChefStatus(chefName, "💤 Idle");
-            }
-        }
-    }
-    
-    private void UpdateChefStatus(string name, string status)
-    {
-        switch (name)
-        {
-            case "Chef Leo":
-                ChefLeoState = status;
-                break;
-            case "Chef Mario":
-                ChefMarioState = status;
-                break;
-            case "Chef Diego":
-                ChefDiegoState = status;
-                break;
+        
+            return false;
         }
     }
 }
