@@ -1,0 +1,3 @@
+/home/misp/Documents/p3/student/RayTracing/obj/native/Release/CMakeFiles/rt.dir
+/home/misp/Documents/p3/student/RayTracing/obj/native/Release/CMakeFiles/edit_cache.dir
+/home/misp/Documents/p3/student/RayTracing/obj/native/Release/CMakeFiles/rebuild_cache.dir

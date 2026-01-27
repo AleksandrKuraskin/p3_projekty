@@ -1,0 +1,7 @@
+{
+	"InstallScripts" : 
+	[
+		"/home/misp/Documents/p3/student/RayTracing/obj/native/Release/cmake_install.cmake"
+	],
+	"Parallel" : false
+}

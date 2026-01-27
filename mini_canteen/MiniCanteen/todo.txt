@@ -1,4 +1,0 @@
-1. Wrap chefs in classes
-2. Wrap waitresses in classes
-3. Wrap host in class
-4. Move table drawing to table class

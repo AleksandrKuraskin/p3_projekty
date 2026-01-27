@@ -1,0 +1,12 @@
+/home/misp/Documents/p3/student/RayTracing/bin/Release/net9.0/librt.so
+/home/misp/Documents/p3/student/RayTracing/bin/Release/net9.0/RayTracing.deps.json
+/home/misp/Documents/p3/student/RayTracing/bin/Release/net9.0/RayTracing.dll
+/home/misp/Documents/p3/student/RayTracing/bin/Release/net9.0/RayTracing.pdb
+/home/misp/Documents/p3/student/RayTracing/obj/Release/net9.0/RayTracing.GeneratedMSBuildEditorConfig.editorconfig
+/home/misp/Documents/p3/student/RayTracing/obj/Release/net9.0/RayTracing.AssemblyInfoInputs.cache
+/home/misp/Documents/p3/student/RayTracing/obj/Release/net9.0/RayTracing.AssemblyInfo.cs
+/home/misp/Documents/p3/student/RayTracing/obj/Release/net9.0/RayTracing.csproj.CoreCompileInputs.cache
+/home/misp/Documents/p3/student/RayTracing/obj/Release/net9.0/RayTracing.dll
+/home/misp/Documents/p3/student/RayTracing/obj/Release/net9.0/refint/RayTracing.dll
+/home/misp/Documents/p3/student/RayTracing/obj/Release/net9.0/RayTracing.pdb
+/home/misp/Documents/p3/student/RayTracing/obj/Release/net9.0/ref/RayTracing.dll

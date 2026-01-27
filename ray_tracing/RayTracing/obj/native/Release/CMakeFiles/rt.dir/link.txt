@@ -1,0 +1,1 @@
+/usr/bin/c++ -fPIC -O3 -DNDEBUG -shared -Wl,--dependency-file=CMakeFiles/rt.dir/link.d -Wl,-soname,librt.so -o librt.so CMakeFiles/rt.dir/export.cpp.o
