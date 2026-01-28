@@ -5,22 +5,27 @@ namespace MiniCanteen.Models.Areas.ServiceArea;
 public class ServiceArea
 {
     private const int InitCapacity = 5;
+    private int _currentCount = 0;
     
     public Channel<int> FoodBuffer { get; } = Channel.CreateBounded<int>(InitCapacity);
-    
-    public int ItemsInBuffer => InitCapacity - (int)GetCapacityRemaining();
+
+    public int CurrentFoodCount => _currentCount;
+    public int SpaceLeft => InitCapacity - _currentCount;
     public int TotalDelivered { get; set; } = 0;
     
     public string WaiterGabrielaState { get; set; } = "💤 Idle";
     public string WaiterSofiaState { get; set; } = "💤 Idle";
-
-    private double GetCapacityRemaining()
+    
+    public async Task AddFoodAsync(CancellationToken token)
     {
-        // Reflection hack or tracking manually required for exact count in Channel, 
-        // but for simple UI we can track manually in logic loop.
-        return 0; 
+        await FoodBuffer.Writer.WriteAsync(1, token);
+        Interlocked.Increment(ref _currentCount);
     }
-        
-    // Simple counter helper
-    public int MealCount = 0;
+    
+    public async Task<int> TakeFoodAsync(CancellationToken token)
+    {
+        var food = await FoodBuffer.Reader.ReadAsync(token);
+        Interlocked.Decrement(ref _currentCount);
+        return food;
+    }
 }

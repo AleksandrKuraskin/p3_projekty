@@ -24,10 +24,10 @@ public class Entrance
         }
     }
 
-    public void SeatCustomer()
+    public async Task SeatCustomerAsync(CancellationToken token)
     {
-        HostStatus = "👋 Seating Guest...";
-        Thread.Sleep(500);
+        HostStatus = "👋 Seating student...";
+        await Task.Delay(500, token);
         _chairs.Release();
         TotalSeated++;
         HostStatus = "💤 Idle";

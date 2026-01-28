@@ -15,30 +15,31 @@ public class Chef(string name, IngredientType ingredient,
     private readonly Kitchen _kitchen = kitchen;
     private readonly ServiceArea _serviceArea = serviceArea;
 
-    public void StartWork()
+    public async Task StartWorkAsync(CancellationToken token)
     {
-        Task.Run(async () =>
+        try
         {
-            while (true)
+            while (!token.IsCancellationRequested)
             {
-                bool success = _kitchen.TryTakeIngredients(Ingredient);
+                Status = ChefStatus.Waiting;
+                
+                var success = await Task.Run(() => _kitchen.TryTakeIngredients(Ingredient), token);
 
                 if (success)
                 {
                     Status = ChefStatus.Cooking;
-                    
-                    await Task.Delay(10000); 
-                    
-                    await _serviceArea.FoodBuffer.Writer.WriteAsync(1);
-                        
+
+                    await Task.Delay(10000, token); 
+                
+                    await _serviceArea.AddFoodAsync(token);
                     Status = ChefStatus.Idle;
                 }
                 else
                 {
-                    Status = ChefStatus.Idle;
-                    await Task.Delay(200);
+                    await Task.Delay(100, token);
                 }
             }
-        });
+        }
+        catch (OperationCanceledException) {}
     }
 }

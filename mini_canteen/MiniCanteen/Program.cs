@@ -1,5 +1,5 @@
-﻿using MiniCanteen.Models;
-using MiniCanteen.UI;
+﻿using MiniCanteen.Config;
+using MiniCanteen.Core;
 using Spectre.Console;
 
 namespace MiniCanteen;
@@ -8,93 +8,59 @@ class Program
 {
     static async Task Main()
     {
+        Console.Title = "MiNI Canteen Simulator";
         while (Console.WindowWidth < 100 || Console.WindowHeight < 30)
         {
             Console.Clear();
-            Console.WriteLine("⚠️ Window too small!");
-            Console.WriteLine($"Current: {Console.WindowWidth}x{Console.WindowHeight}");
-            Console.WriteLine("Required: 100x30");
-            Console.WriteLine("Please resize console...");
-            Thread.Sleep(500);
+            AnsiConsole.MarkupLine("[red]⚠️ Console window is too small![/]");
+            AnsiConsole.MarkupLine(
+                $"Required: [bold]120x40[/], Current: [bold]{Console.WindowWidth}x{Console.WindowHeight}[/]");
+            AnsiConsole.MarkupLine("Try resizing the console.");
+            await Task.Delay(500);
         }
 
-        var state = new CanteenState();
+        var simulation = new CanteenSimulation();
 
-        _ = Task.Run(async () =>
-        {
-            Console.WriteLine("Adding supplier logic...");
-            while (true)
+        var cts = new CancellationTokenSource();
+        
+        await AnsiConsole.Live(ConsoleRenderer.CreateLayout(simulation.State))
+            .AutoClear(false)
+            .Overflow(VerticalOverflow.Ellipsis)
+            .Cropping(VerticalOverflowCropping.Bottom)
+            .StartAsync(async context =>
             {
-                await Task.Delay(500);
-
-                state.Kitchen.SupplierPutIngredients();
-                state.Log("👨‍🍳 Supplier refilled table.");
-            }
-        });
-
-        foreach (var chef in state.Kitchen.Chefs)
-        {
-            chef.StartWork();
-        }
-
-        _ = Task.Run(async () =>
-        {
-            Console.WriteLine("Adding customers logic...");
-            while (true)
-            {
-                await Task.Delay(2000); // New customer every 2s
-                state.Log(state.Entrance.TryEnterQueue()
-                    ? "🚪 Customer entered queue."
-                    : "🛑 Customer balked (Queue Full).");
-            }
-        });
-
-        _ = Task.Run(async () =>
-        {
-            while (true)
-            {
-                if (state.Entrance.WaitingCount > 0)
+                var simTask = simulation.StartAsync(cts.Token);
+                
+                while (!cts.Token.IsCancellationRequested)
                 {
-                    state.Entrance.SeatCustomer();
-                    state.Log("✅ Host seated a guest.");
+                    context.UpdateTarget(ConsoleRenderer.UpdateView(simulation.State));
+                    
+                    if (Console.KeyAvailable)
+                    {
+                        var key = Console.ReadKey(true).Key;
+                        if (key == ConsoleKey.Q || key == ConsoleKey.Escape)
+                            await cts.CancelAsync();
+                    }
+
+                    try
+                    {
+                        await Task.Delay(33, cts.Token);
+                    }
+                    catch(OperationCanceledException)
+                    {
+                        break;
+                    }
+                    
                 }
 
-                await Task.Delay(500);
-            }
-        });
+                try
+                {
+                    await simTask;
+                }
+                catch (OperationCanceledException) {}
+            });
 
-        AnsiConsole.Write(new Text("\u001b[?1049h"));
-        Console.CursorVisible = false;
-
-        try
-        {
-            // Now we can properly AWAIT the loop!
-            await RunDashboardLoop(state);
-        }
-        finally
-        {
-            // Restore Main Screen Buffer (Clean Exit)
-            // \u001b[?1049l is the exit code
-            AnsiConsole.Write(new Text("\u001b[?1049l"));
-            Console.CursorVisible = true;
-        }
-    }
-
-    private static async Task RunDashboardLoop(CanteenState state)
-    {
-        while (true)
-        {
-            if (Console.KeyAvailable)
-            {
-                var key = Console.ReadKey(true).Key;
-                if (key == ConsoleKey.Q || key == ConsoleKey.Escape) break;
-                if (key == ConsoleKey.C) state.SystemLog.Clear();
-            }
-
-            Console.SetCursorPosition(0, 0); 
-            ConsoleRenderer.ShowDashboard(state);
-            
-            await Task.Delay(50);
-        }
+        Console.CursorVisible = true;
+        AnsiConsole.MarkupLine("[green]👋 Simulation done![/]");
     }
 }
