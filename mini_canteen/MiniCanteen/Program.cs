@@ -22,45 +22,50 @@ class Program
         var simulation = new CanteenSimulation();
 
         var cts = new CancellationTokenSource();
+        var simTask = simulation.StartAsync(cts.Token);
         
-        await AnsiConsole.Live(ConsoleRenderer.CreateLayout(simulation.State))
-            .AutoClear(false)
-            .Overflow(VerticalOverflow.Ellipsis)
-            .Cropping(VerticalOverflowCropping.Bottom)
-            .StartAsync(async context =>
-            {
-                var simTask = simulation.StartAsync(cts.Token);
-                
-                while (!cts.Token.IsCancellationRequested)
+        AnsiConsole.AlternateScreen(async () =>
+        {
+            // Ukrywamy kursor
+            Console.CursorVisible = false;
+
+            // Tworzymy bazowy szkielet Layoutu
+            var layout = ConsoleRenderer.CreateLayout();
+
+            // Uruchamiamy Live Display na tym Layoucie
+            await AnsiConsole.Live(layout)
+                .AutoClear(false) // W AlternateScreen nie czyścimy, tylko nadpisujemy
+                .StartAsync(async ctx =>
                 {
-                    context.UpdateTarget(ConsoleRenderer.UpdateView(simulation.State));
-                    
-                    if (Console.KeyAvailable)
+                    while (!cts.Token.IsCancellationRequested)
                     {
-                        var key = Console.ReadKey(true).Key;
-                        if (key == ConsoleKey.Q || key == ConsoleKey.Escape)
-                            await cts.CancelAsync();
-                    }
+                        // Aktualizujemy zawartość Layoutu
+                        ConsoleRenderer.UpdateLayout(layout, simulation.State);
+                        ctx.Refresh(); // Wymuszamy odświeżenie
 
-                    try
-                    {
-                        await Task.Delay(33, cts.Token);
-                    }
-                    catch(OperationCanceledException)
-                    {
-                        break;
-                    }
-                    
-                }
+                        // Obsługa klawiszy
+                        if (Console.KeyAvailable)
+                        {
+                            var key = Console.ReadKey(true).Key;
+                            if (key == ConsoleKey.Q || key == ConsoleKey.Escape)
+                            {
+                                cts.Cancel();
+                            }
+                        }
 
-                try
-                {
-                    await simTask;
-                }
-                catch (OperationCanceledException) {}
-            });
+                        try
+                        {
+                            await Task.Delay(50, cts.Token);
+                        }
+                        catch (OperationCanceledException) { break; }
+                    }
+                });
+        });
 
+        // Po wyjściu z bloku AlternateScreen wracamy do normalnej konsoli
+        try { await simTask; } catch (OperationCanceledException) { }
+        
         Console.CursorVisible = true;
-        AnsiConsole.MarkupLine("[green]👋 Simulation done![/]");
+        AnsiConsole.MarkupLine("[green]👋 Symulacja zakończona poprawnie.[/]");
     }
 }

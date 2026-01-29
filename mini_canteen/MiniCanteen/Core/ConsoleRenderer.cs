@@ -4,48 +4,56 @@ using MiniCanteen.Config.Enums;
 using MiniCanteen.Models;
 using MiniCanteen.Models.Areas.Kitchen;
 using Spectre.Console;
-using Spectre.Console.Rendering;
 
 namespace MiniCanteen.Core;
 
 public static class ConsoleRenderer
 {
-    public static IRenderable CreateLayout(CanteenState state) => new Grid();
-
-    public static Grid UpdateView(CanteenState state)
+    // Tworzymy strukturę Layoutu raz na początku
+    public static Layout CreateLayout()
     {
-        var mainGrid = new Grid();
-        mainGrid.AddColumn();
-        
-        var topGrid = new Grid();
-        topGrid.AddColumn();
-        topGrid.AddColumn();
-        
-        topGrid.AddRow(
-            RenderKitchen(state.Kitchen), 
-            RenderService(state.ServiceArea)
-        );
-        
-        var bottomGrid = new Grid();
-        bottomGrid.AddColumn();
-        bottomGrid.AddColumn();
-        bottomGrid.AddColumn();
-        
-        bottomGrid.AddRow(
-            RenderDining(state.DiningArea),
-            RenderEntrance(state.Entrance),
-            RenderLogs(state)
-        );
-        
-        mainGrid.AddRow(topGrid);
-        mainGrid.AddRow(bottomGrid);
+        return new Layout("Root")
+            .SplitRows(
+                // GÓRA: Podział 1:1
+                new Layout("Top").SplitColumns(
+                    new Layout("Kitchen"),
+                    new Layout("Service")
+                ),
+                // DÓŁ: Podział 3:1:1 (Dining : Entrance : Logs)
+                new Layout("Bottom").SplitColumns(
+                    new Layout("Dining").Ratio(3),
+                    new Layout("Entrance").Ratio(1),
+                    new Layout("Logs").Ratio(1)
+                )
+            );
+    }
 
-        return mainGrid;
+    // Aktualizujemy tylko zawartość (Update) istniejących okien
+    public static void UpdateLayout(Layout layout, CanteenState state)
+    {
+        // 1. Kuchnia
+        layout["Kitchen"].Update(RenderKitchen(state.Kitchen));
+        
+        // 2. Service
+        layout["Service"].Update(RenderService(state.ServiceArea));
+        
+        // 3. Dining Area (Duże okno - Ratio 3)
+        layout["Dining"].Update(RenderDining(state.DiningArea));
+        
+        // 4. Entrance (Małe okno - Ratio 1)
+        layout["Entrance"].Update(RenderEntrance(state.Entrance));
+        
+        // 5. Logs (Małe okno - Ratio 1)
+        layout["Logs"].Update(RenderLogs(state));
     }
 
     private static Panel RenderKitchen(Kitchen kitchen)
     {
-        var table = new Spectre.Console.Table().Border(TableBorder.None).HideHeaders().Expand();
+        var table = new Spectre.Console.Table()
+            .Border(TableBorder.None)
+            .HideHeaders()
+            .Expand();
+            
         table.AddColumn("Chef");
         table.AddColumn("Status");
         table.AddColumn("Pot");
@@ -58,17 +66,17 @@ public static class ConsoleRenderer
                 Formatter.GetIngredientIcon(chef.Ingredient)
             );
         }
-        
+
         var ingContent = Formatter.FormatIngredient(Icons.TomatoIcon, kitchen.DroppedTomato, "red") + " " +
                          Formatter.FormatIngredient(Icons.CheeseIcon, kitchen.DroppedCheese, "yellow") + " " +
                          Formatter.FormatIngredient(Icons.ChiliIcon, kitchen.DroppedChili, "red");
-        
-        var content = new Grid().AddColumn();
-        content.AddRow(table);
-        content.AddRow(new Rule($"[grey]Table: {ingContent}[/]").LeftJustified());
 
-        return new Panel(content)
-            .Header("🔪 KITCHEN")
+        var rows = new Grid().AddColumn();
+        rows.AddRow(table);
+        rows.AddRow(new Rule($"[grey]Stół: {ingContent}[/]").LeftJustified());
+
+        return new Panel(rows)
+            .Header("🔪 Kitchen")
             .BorderColor(Color.Red)
             .Expand();
     }
@@ -76,22 +84,21 @@ public static class ConsoleRenderer
     private static Panel RenderService(Models.Areas.ServiceArea.ServiceArea service)
     {
         var bar = new BarChart()
-            .Width(30)
-            .Label("Food Buffer")
+            .Label("Bufet")
             .CenterLabel()
-            .AddItem("Food Count", service.CurrentFoodCount, Color.Yellow)
-            .AddItem("Free Space", service.SpaceLeft, Color.Grey);
-        
-        var content = new Padder(bar, new Padding(2, 1));
+            .AddItem("Posiłki", service.CurrentFoodCount, Color.Yellow)
+            .WithMaxValue(10);
 
-        return new Panel(content)
-            .Header("🔔 SERVICE AREA")
+        // Używamy Align.Center, żeby wykres był ładnie na środku
+        return new Panel(Align.Center(bar, VerticalAlignment.Middle))
+            .Header("🔔 Service Area")
             .BorderColor(Color.Yellow)
             .Expand();
     }
 
     private static Panel RenderDining(Models.Areas.DiningArea.DiningArea dining)
     {
+        // Grid 2x2 dla stolików, żeby wykorzystać szerokość (Ratio 3)
         var grid = new Grid().AddColumn().AddColumn();
         grid.Expand();
         
@@ -114,37 +121,40 @@ public static class ConsoleRenderer
         }
 
         return new Panel(grid)
-            .Header("🍝 DINING AREA")
+            .Header("🍝 Dining Area")
             .BorderColor(Color.Blue)
             .Expand();
     }
 
     private static Panel RenderEntrance(Models.Areas.Entrance.Entrance entrance)
     {
-        var queueBar = Formatter.CreateProgressBar(entrance.WaitingCount, 5, "green");
+        var queueBar = Formatter.CreateProgressBar(entrance.WaitingCount, 4, "green");
         
         var content = new Grid().AddColumn();
-        content.AddRow(new Markup($"[bold]Host Status:[/] {entrance.HostStatus}"));
+        content.AddRow(new Markup($"[bold]Host:[/] {entrance.HostStatus}"));
         content.AddRow(new Rule());
-        content.AddRow(new Markup($"[bold]Queue:[/] {queueBar}"));
-        content.AddRow(new Markup($"[dim]Waiting: {entrance.WaitingCount}/4[/]"));
+        content.AddRow(new Markup($"[dim]Kolejka ({entrance.WaitingCount}/4):[/]"));
+        content.AddRow(new Markup($"{queueBar}"));
         content.AddRow(new Rule());
-        content.AddRow(new Markup($"[green]Served: {entrance.TotalSeated}[/]"));
-        content.AddRow(new Markup($"[red]Walked Away:  {entrance.TotalWalkedAway}[/]"));
+        content.AddRow(new Markup($"[green]Seated: {entrance.TotalSeated}[/]"));
+        content.AddRow(new Markup($"[red]Left:   {entrance.TotalWalkedAway}[/]"));
 
-        return new Panel(content)
-            .Header("🚪 ENTRANCE")
+        return new Panel(Align.Center(content, VerticalAlignment.Middle))
+            .Header("🚪 Entrance")
             .BorderColor(Color.Green)
             .Expand();
     }
 
     private static Panel RenderLogs(CanteenState state)
     {
+        // Logi biorą całą dostępną wysokość layoutu
         var logs = state.SystemLog.ToArray();
-        var text = string.Join("\n", logs);
+        // Bierzemy ostatnie 15 (Layout sam utnie co niepotrzebne)
+        var visibleLogs = logs.TakeLast(20); 
+        var text = string.Join("\n", visibleLogs);
         
         return new Panel(new Markup(text).Overflow(Overflow.Ellipsis))
-            .Header("📜 LOGS")
+            .Header("📜 Logs")
             .BorderColor(Color.Grey)
             .Expand();
     }
