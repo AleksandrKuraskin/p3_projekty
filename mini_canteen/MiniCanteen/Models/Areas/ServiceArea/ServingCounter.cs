@@ -1,6 +1,6 @@
 using System.Collections.Concurrent;
 
-namespace MiniCanteen.Models.Resources;
+namespace MiniCanteen.Models.Areas.ServiceArea;
 
 public class ServingCounter
 {

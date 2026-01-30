@@ -1,43 +1,29 @@
+using MiniCanteen.Config.Enums;
+
 namespace MiniCanteen.Models.Areas.Kitchen;
 
-using MiniCanteen.Config.Enums;
-using MiniCanteen.Models.Areas.ServiceArea;
-
-public class Kitchen
+public class KitchenBoard
 {
-    public bool DroppedTomato { get; private set; }
-    public bool DroppedCheese { get; private set; }
-    public bool DroppedChili { get; private set; }
+    private bool _hasTomato;
+    private bool _hasCheese;
+    private bool _hasChili;
+    private readonly object _lock = new();
 
-    public List<Chef> Chefs { get; private set; } = new List<Chef>();
-    
-    private readonly object _lock = new object();
+    private bool IsEmpty => !_hasTomato && !_hasCheese && !_hasChili;
 
-    public Kitchen(ServiceArea serviceArea)
-    {
-        Chefs.Add(new Chef("Leo", IngredientType.Tomato, this, serviceArea));
-        
-        Chefs.Add(new Chef("Mario", IngredientType.Cheese, this, serviceArea));
-        
-        Chefs.Add(new Chef("Diego", IngredientType.Chili, this, serviceArea));
-    }
-    
-    public void SupplierPutIngredients()
+    public void PlaceIngredients(IngredientType excluded)
     {
         lock (_lock)
         {
-
-            while (DroppedTomato || DroppedCheese || DroppedChili)
+            while (!IsEmpty)
             {
                 Monitor.Wait(_lock);
             }
-            
-            var excludedItem = (IngredientType)new Random().Next(0, 3);
-            
-            DroppedTomato = (excludedItem != IngredientType.Tomato);
-            DroppedCheese = (excludedItem != IngredientType.Cheese);
-            DroppedChili  = (excludedItem != IngredientType.Chili);
 
+            _hasTomato = excluded != IngredientType.Tomato;
+            _hasCheese = excluded != IngredientType.Cheese;
+            _hasChili = excluded != IngredientType.Chili;
+            
             Monitor.PulseAll(_lock);
         }
     }
@@ -46,20 +32,19 @@ public class Kitchen
     {
         lock (_lock)
         {
-            var canCook = false;
+            if (IsEmpty) return false;
 
+            var canCook = false;
             switch (chefHas)
             {
                 case IngredientType.Tomato:
-                    if (DroppedCheese && DroppedChili) canCook = true;
+                    if (_hasCheese && _hasChili) canCook = true;
                     break;
-                
                 case IngredientType.Cheese:
-                    if (DroppedTomato && DroppedChili) canCook = true;
+                    if (_hasTomato && _hasChili) canCook = true;
                     break;
-                
                 case IngredientType.Chili:
-                    if (DroppedTomato && DroppedCheese) canCook = true;
+                    if (_hasTomato && _hasCheese) canCook = true;
                     break;
                 default:
                     break;
@@ -67,15 +52,18 @@ public class Kitchen
 
             if (canCook)
             {
-                DroppedTomato = false;
-                DroppedCheese = false;
-                DroppedChili = false;
-                
+                _hasTomato = _hasCheese = _hasChili = false;
                 Monitor.PulseAll(_lock);
                 return true;
             }
-        
+            
+            Monitor.Wait(_lock, 100); 
             return false;
         }
+    }
+
+    public (bool t, bool c, bool ch) GetState() 
+    {
+        lock(_lock) return (_hasTomato, _hasCheese, _hasChili);
     }
 }

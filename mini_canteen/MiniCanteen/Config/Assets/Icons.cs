@@ -9,7 +9,7 @@ public class Icons
     public const string ChefIdle     = "💤";
     public const string ChefCooking  = "🍳";
     public const string ChefWaiting  = "⏳️";
-    public const string ChefProfile  = "👨‍🍳";
+    public const string ChefProfile  = "👨";
 
     public const string Checkmark    = "✅";
     public const string Cross        = "❌️️";
