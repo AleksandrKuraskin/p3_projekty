@@ -2,7 +2,7 @@ using MiniCanteen.Config.Enums;
 
 namespace MiniCanteen.Models.Areas.Kitchen;
 
-public class KitchenBoard
+public class Kitchen
 {
     private bool _hasTomato;
     private bool _hasCheese;

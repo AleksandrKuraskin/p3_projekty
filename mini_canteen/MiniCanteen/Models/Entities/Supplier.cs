@@ -1,26 +1,30 @@
 using MiniCanteen.Abstractions;
+using MiniCanteen.Config.Assets;
 using MiniCanteen.Config.Enums;
 using MiniCanteen.Models.Areas.Kitchen;
 
 namespace MiniCanteen.Models.Entities;
 
-public class Supplier(KitchenBoard board, Action<string> logger) : IEntity("Supplier", logger)
+public class Supplier(Kitchen kitchen, Action<string> logger) : Entity("Supplier", logger)
 {
-    private readonly KitchenBoard _board = board;
+    protected override (string Message, string Icon) GetStateConfig(EntityState state) => state switch
+    {
+        EntityState.Idle => ("Resting", Icons.ChefIdle),
+        EntityState.Working => ("Delivering", Icons.Truck),
+        _ => (state.ToString(), "?")
+    };
 
     public override async Task RunAsync(CancellationToken token)
     {
         while (!token.IsCancellationRequested)
         {
-            SetStatus(EntityState.Waiting, "Waiting...", "🚚");
-            await SimulateWork(1000, 3000, token);
+            SetStatus(EntityState.Idle);
+            await SimulateWork(2000, 4000, token);
 
-            SetStatus(EntityState.Working, "Delivering...", "📦");
-            
+            SetStatus(EntityState.Working);
             var excluded = (IngredientType)Random.Shared.Next(3);
-            await Task.Run(() => _board.PlaceIngredients(excluded), token);
-            
-            Logger($"[blue]Supplier[/] delivered ingredients (No {excluded}).");
+            await Task.Run(() => kitchen.PlaceIngredients(excluded), token);
+            Logger($"[blue]{Name}[/] delivered ingredients.");
         }
     }
 }

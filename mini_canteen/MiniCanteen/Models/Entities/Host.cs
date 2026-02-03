@@ -1,56 +1,48 @@
 using System.Collections.Concurrent;
 using MiniCanteen.Abstractions;
+using MiniCanteen.Config.Assets;
 
 namespace MiniCanteen.Models.Entities;
 
-public class Host(int capacity, Action<string> logger) : IEntity("Host", logger)
+public class Host(int diningCapacity, int queueCapacity, Action<string> logger) : Entity("Host", logger)
 {
-    public ConcurrentQueue<Student> Queue { get; } = new();
-    
-    private readonly SemaphoreSlim _diningCapacity = new SemaphoreSlim(capacity, capacity);
+    public BlockingCollection<Student> EntranceQueue { get; } = new(queueCapacity);
+    private readonly SemaphoreSlim _diningSemaphore = new(diningCapacity, diningCapacity);
 
-    public bool TryAddToQueue(Student student)
+    public int CurrentOccupancy => diningCapacity - _diningSemaphore.CurrentCount;
+
+    public bool TryAddToQueue(Student student) => EntranceQueue.TryAdd(student);
+
+    public void StudentLeft() => _diningSemaphore.Release();
+
+    protected override (string Message, string Icon) GetStateConfig(EntityState state) => state switch
     {
-        if (Queue.Count >= 5) return false;
-        Queue.Enqueue(student);
-        return true;
-    }
+        EntityState.Idle => ("Waiting for students", Icons.HostIdle),
+        EntityState.Waiting => ("Waiting for seats", Icons.HostWaiting),
+        EntityState.Working => ("Seating student", Icons.HostSeating),
+        _ => (state.ToString(), "?")
+    };
 
     public override async Task RunAsync(CancellationToken token)
     {
         while (!token.IsCancellationRequested)
         {
-            if (Queue.IsEmpty)
+            try
             {
-                SetStatus(EntityState.Idle, "Greeting...", "👋");
-                await Task.Delay(500, token);
-                continue;
-            }
+                // Czekaj na kogoś w kolejce (blokada)
+                SetStatus(EntityState.Idle);
+                var student = EntranceQueue.Take(token);
 
-            if (Queue.TryPeek(out var student))
-            {
-                SetStatus(EntityState.Waiting, "Checking tables...", "🧐");
-                
-                await _diningCapacity.WaitAsync(token);
+                // Czekaj na wolne miejsce w sali (blokada)
+                if (_diningSemaphore.CurrentCount == 0) SetStatus(EntityState.Waiting);
+                await _diningSemaphore.WaitAsync(token);
 
-                if (Queue.TryDequeue(out var s))
-                {
-                    SetStatus(EntityState.Working, $"Seating {s.Name}", "👉");
-                    s.GrantEntry();
-                    await Task.Delay(1000, token);
-                }
-                else
-                {
-                    _diningCapacity.Release();
-                }
+                // Wpuszczanie
+                SetStatus(EntityState.Working, $"Seating {student.Name}");
+                student.GrantEntry();
+                await SimulateWork(500, 1000, token);
             }
+            catch (OperationCanceledException) { break; }
         }
     }
-
-    public void StudentLeft()
-    {
-        _diningCapacity.Release();
-    }
-    
-    public int CurrentOccupancy => _diningCapacity.CurrentCount;
 }

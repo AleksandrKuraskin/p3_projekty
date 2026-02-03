@@ -1,10 +1,9 @@
+using MiniCanteen.Core;
 using Spectre.Console;
-using MiniCanteen.Config;
-using MiniCanteen.Config.Assets;
-using MiniCanteen.Config.Enums;
-using MiniCanteen.Models;
+using MiniCanteen.Config.Assets; // Zakładam, że Icons.cs został
+using MiniCanteen.Models.Entities;
 
-namespace MiniCanteen.Core;
+namespace MiniCanteen.UI;
 
 public static class ConsoleLayout
 {
@@ -36,19 +35,23 @@ public static class ConsoleLayout
     private static Panel RenderKitchen(CanteenManager mgr)
     {
         var table = new Table().Border(TableBorder.None).Expand().HideHeaders();
-        table.AddColumn("R"); table.AddColumn("N"); table.AddColumn("S");
+        table.AddColumn("Role");
+        table.AddColumn("Name");
+        table.AddColumn("Status");
 
+        // Supplier
         table.AddRow("🚚 Supplier", mgr.Supplier.Name, mgr.Supplier.CurrentStatus.ToMarkup());
         table.AddEmptyRow();
 
+        // Chefs
         foreach (var chef in mgr.Chefs)
         {
-            var icon = chef.Ingredient switch {
-                IngredientType.Tomato => Icons.Tomato,
-                IngredientType.Cheese => Icons.Cheese,
-                _ => Icons.Chili
+            var ingIcon = chef.Ingredient switch {
+                Config.Enums.IngredientType.Tomato => "🍅",
+                Config.Enums.IngredientType.Cheese => "🧀",
+                _ => "🌶️"
             };
-            table.AddRow($"👨‍🍳 Chef ({icon})", chef.Name, chef.CurrentStatus.ToMarkup());
+            table.AddRow($"👨‍🍳 Chef ({ingIcon})", chef.Name, chef.CurrentStatus.ToMarkup());
         }
 
         var (t, c, ch) = mgr.Kitchen.GetState();
@@ -65,6 +68,7 @@ public static class ConsoleLayout
     {
         var grid = new Grid().AddColumn();
         
+        // Waitresses
         foreach(var w in mgr.Waitresses)
         {
             grid.AddRow(new Markup($"[magenta]💁‍♀️ {w.Name}[/]: {w.CurrentStatus.ToMarkup()}"));
@@ -72,29 +76,42 @@ public static class ConsoleLayout
         
         grid.AddRow(new Rule());
 
+        // Buffets
         var passChart = new BarChart()
             .Label("Kitchen Pass")
             .AddItem("Meals", mgr.Counter.MealsReady, Color.Yellow)
-            .WithMaxValue(5);
+            .WithMaxValue(3);
             
-        grid.AddRow(passChart);
+        var buffetChart = new BarChart()
+            .Label("Main Buffet")
+            .AddItem("Meals", mgr.Counter.MealsReady, Color.Green)
+            .WithMaxValue(10);
+
+        grid.AddRow(new Columns(passChart, buffetChart));
+
         return new Panel(grid).Header("🔔 Service").BorderColor(Color.Yellow).Expand();
     }
 
     private static Panel RenderDining(CanteenManager mgr)
     {
+        // Wyświetlamy studentów w formie siatki
         var table = new Table().Border(TableBorder.Rounded).Expand();
         table.AddColumn("Student");
-        table.AddColumn("Status");
+        table.AddColumn("Action");
         
-        var seated = mgr.Students.Where(s => !mgr.Host.EntranceQueue.Contains(s)).ToList();
+        // Filtrujemy tylko tych, którzy już weszli (nie są w kolejce)
+        var seatedStudents = mgr.Students.Where(s => !mgr.Host.EntranceQueue.Contains(s)).ToList();
 
-        if (!seated.Any())
-            return new Panel(Align.Center(new Markup("[grey]Empty[/]"), VerticalAlignment.Middle))
+        if (!seatedStudents.Any())
+        {
+            return new Panel(Align.Center(new Markup("[grey]Empty Dining Hall[/]"), VerticalAlignment.Middle))
                 .Header("Dining Area").BorderColor(Color.Blue).Expand();
+        }
 
-        foreach (var s in seated)
+        foreach (var s in seatedStudents)
+        {
             table.AddRow(s.Name, s.CurrentStatus.ToMarkup());
+        }
 
         return new Panel(table).Header("🍝 Dining Area").BorderColor(Color.Blue).Expand();
     }
@@ -102,15 +119,14 @@ public static class ConsoleLayout
     private static Panel RenderEntrance(CanteenManager mgr)
     {
         var grid = new Grid().AddColumn();
-        grid.AddRow($"[bold]Host:[/] {mgr.Host.CurrentStatus.ToMarkup()}");
+        grid.AddRow($"[bold]Host Status:[/] {mgr.Host.CurrentStatus.ToMarkup()}");
         
         var qCount = mgr.Host.EntranceQueue.Count;
         var bar = "";
-        for(int i=0; i<6; i++) 
-            bar += i < qCount ? $"[{Theme.TextFail}]{Icons.StudentQueue}[/] " : "[grey]_[/] ";
+        for(int i=0; i<5; i++) bar += i < qCount ? "[red]👤[/]" : "[grey]_[/]";
         
         grid.AddRow(new Markup($"Queue: {bar}"));
-        grid.AddRow($"Occupancy: {mgr.Host.CurrentOccupancy}/8"); 
+        grid.AddRow($"Occupancy: {8 - mgr.Host.CurrentOccupancy}/8"); // CurrentCount to wolne miejsca
 
         return new Panel(grid).Header("🚪 Entrance").BorderColor(Color.Green).Expand();
     }

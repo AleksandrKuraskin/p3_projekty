@@ -1,9 +1,0 @@
-using System.Collections.Concurrent;
-
-namespace MiniCanteen.Models.Resources;
-
-public class ServingCounter
-{
-    public BlockingCollection<string> MealsBuffer { get; } = new(5);
-    public int MealsReady => MealsBuffer.Count;
-}
